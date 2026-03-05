@@ -28,6 +28,10 @@ jobs:
 
       - name: Run regression tests
         run: npx playwright test --grep @pricesimulator
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
 
       - name: Upload test report
         if: always()   # sube el reporte aunque fallen los tests
