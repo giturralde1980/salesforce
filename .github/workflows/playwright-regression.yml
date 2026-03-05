@@ -5,6 +5,9 @@ on:
     branches:
       - '**'   # cualquier rama
 
+  repository_dispatch:
+    types: [jira-test-execution]  # ← añade esto
+
 jobs:
   regression:
     name: Run @regression tests
@@ -28,6 +31,13 @@ jobs:
 
       - name: Run regression tests
         run: npx playwright test --grep @smoke
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+
+      - name: Run tests from Jira
+        run: npx playwright test --grep "@CHCCRM01-18649"
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
           TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
