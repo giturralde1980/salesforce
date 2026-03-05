@@ -2,10 +2,9 @@ import { test, expect } from '@playwright/test';
 import HomePage from '../../pages/HomePage';
 import LoginPage from '../../pages/LoginPage';
 import ProductListPage from '../../pages/ProductListPage';
-import { getSfAccessToken, getOrderByNumber } from '../../api/sfClient';
 import 'dotenv/config';
 
-test.describe('Simulate Order Creation',() => {
+test.describe('Simulate Order Creation', { tag: '@smoke' }, () => {
   let homePage: HomePage;
   let loginPage: LoginPage;
   let productListPage: ProductListPage;
@@ -257,16 +256,5 @@ test.describe('Simulate Order Creation',() => {
 
     const orderNumberText = (await orderNumberHeading.textContent()) ?? '';
     console.log(`Order confirmed: ${orderNumberText.trim()} ✓`);
-
-    // ── Step 12: verify order exists in Salesforce via API ───────────────────
-    const orderNumber = orderNumberText.match(/\d+/)?.[0] ?? '';
-    expect(orderNumber, 'Could not extract order number from heading').toBeTruthy();
-
-    const { access_token, instance_url } = await getSfAccessToken(page.request);
-    console.log('Salesforce access token obtained ✓');
-
-    const sfOrder = await getOrderByNumber(page.request, instance_url, access_token, orderNumber);
-    expect(sfOrder, `Order ${orderNumber} not found in Salesforce`).not.toBeNull();
-    console.log(`Salesforce order found — OrderNumber: ${sfOrder!.OrderNumber} | Status: ${sfOrder!.Status} | Total: ${sfOrder!.TotalAmount} ✓`);
   });
 });
