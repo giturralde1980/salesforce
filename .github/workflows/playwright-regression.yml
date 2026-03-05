@@ -27,7 +27,7 @@ jobs:
         run: npx playwright install --with-deps msedge
 
       - name: Run regression tests
-        run: npx playwright test --grep @smoke
+        run: npx playwright test --grep @pricesimulator
 
       - name: Upload test report
         if: always()   # sube el reporte aunque fallen los tests
