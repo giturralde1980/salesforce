@@ -12,6 +12,15 @@ test.describe('@CHCCRM01-18649 Country Selector - Footer Panel', { tag: '@smoke'
   let homePage: HomePage;
   let countryPage: CountryNavigatorPage;
 
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status === 'passed') {
+      await testInfo.attach('screenshot', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    }
+  });
+
   test.beforeEach(async ({ page }) => {
     homePage = new HomePage(page);
     countryPage = new CountryNavigatorPage(page);
