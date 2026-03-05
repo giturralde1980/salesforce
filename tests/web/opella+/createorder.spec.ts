@@ -35,7 +35,7 @@ test.describe('Simulate Order Creation',() => {
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  test('Order simulation: add product to cart, calculate price and empty cart', { tag: '@order' },async ({ page }) => {
+  test('Order simulation: add product to cart, calculate price and empty cart', { tag: '@smoke' },async ({ page }) => {
     test.setTimeout(150000);
 
     const productCount = await productListPage.getProductCount();
@@ -140,7 +140,7 @@ test.describe('Simulate Order Creation',() => {
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  test('Order creation: add product to cart, calculate price and proceed to checkout', async ({ page }) => {
+  test('Order creation: add product to cart, calculate price and proceed to checkout', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(150000);
 
     const productCount = await productListPage.getProductCount();
