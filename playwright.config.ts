@@ -30,7 +30,7 @@ export default defineConfig({
       name: 'Microsoft Edge',
       use: {
         channel: 'msedge',
-        viewport: null,
+        viewport: { width: 1920, height: 1080 },
         launchOptions: {
           args: ['--start-maximized'],
         },
