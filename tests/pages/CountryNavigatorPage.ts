@@ -18,7 +18,7 @@ export const ALL_COUNTRIES: CountryEntry[] = [
   { name: 'Italy',    region: 'Europe',   iso: 'IT' },
   { name: 'Poland',   region: 'Europe',   iso: 'PL' },
   { name: 'Portugal', region: 'Europe',   iso: 'PT' },
-  { name: 'Spain',    region: 'Europe',   iso: 'AR' },
+  { name: 'Spain',    region: 'Europe',   iso: 'ES' },
 ];
 
 export default class CountryNavigatorPage extends BasePage {
