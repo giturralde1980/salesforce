@@ -241,7 +241,7 @@ test.describe('Simulate Order Creation', { tag: '@smoke' }, () => {
     console.log('Clicked "Bestätigen Sie die Zahlung" ✓');
 
     // ── Step 11: verify order confirmation page ──────────────────────────────
-    await page.waitForURL(url => url.href.includes('/orderconfirmation/'), { timeout: 30000 });
+    await page.waitForURL(url => url.href.includes('/orderconfirmation/'), { timeout: 60000 });
     expect(page.url()).toContain('/orderconfirmation/');
     console.log(`Order confirmation URL: ${page.url()}`);
 

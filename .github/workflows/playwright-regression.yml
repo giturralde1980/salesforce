@@ -36,6 +36,7 @@ jobs:
           TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
           TEST_PASSWORD_OWNER: ${{ secrets.TEST_PASSWORD_OWNER }}
+          PRODUCT_CODE: ${{ secrets.PRODUCT_CODE }}
 
       - name: Run tests from Jira
         run: npx playwright test --grep "@CHCCRM01-18649"
@@ -44,6 +45,7 @@ jobs:
           TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
           TEST_PASSWORD_OWNER: ${{ secrets.TEST_PASSWORD_OWNER }}
+          PRODUCT_CODE: ${{ secrets.PRODUCT_CODE }}
 
       - name: Upload test report
         if: always()   # sube el reporte aunque fallen los tests
