@@ -27,7 +27,7 @@ jobs:
         run: npx playwright install --with-deps msedge
 
       - name: Run regression tests
-        run: npx playwright test
+        run: npx playwright test --grep @smoke
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
           TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}

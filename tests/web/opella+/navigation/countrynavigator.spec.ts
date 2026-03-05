@@ -8,7 +8,7 @@ import 'dotenv/config';
  * Americas (2): Brazil (BR), Mexico (MX)
  * Europe  (6): France (FR), Germany (DE), Italy (IT), Poland (PL), Portugal (PT), Spain (ES)
  */
-test.describe('Country Selector - Footer Panel', { tag: '@smoke' },() => {
+test.describe('Country Selector - Footer Panel', { tag: '@smoke' }, () => {
   let homePage: HomePage;
   let countryPage: CountryNavigatorPage;
 
