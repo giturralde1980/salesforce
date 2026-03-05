@@ -27,7 +27,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run regression tests
-        run: npx playwright test --grep @country --headed
+        run: npx playwright test --grep @smoke --headed
 
       - name: Upload test report
         if: always()   # sube el reporte aunque fallen los tests
