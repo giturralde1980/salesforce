@@ -16,6 +16,7 @@ test.describe('Country Selector - Footer Panel', { tag: '@smoke' }, () => {
     homePage = new HomePage(page);
     countryPage = new CountryNavigatorPage(page);
     await homePage.navigate();
+    await countryPage.waitForPageLoad();
     await countryPage.scrollToFooter();
     await countryPage.openCountrySelector();
   });

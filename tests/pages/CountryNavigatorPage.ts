@@ -47,6 +47,7 @@ export default class CountryNavigatorPage extends BasePage {
 
   async openCountrySelector(): Promise<void> {
     const trigger = this.page.locator(this.footerCountryCardSelector).first();
+    await trigger.waitFor({ state: 'visible', timeout: 20000 });
     await trigger.scrollIntoViewIfNeeded();
     await trigger.click();
     // Wait for the panel title

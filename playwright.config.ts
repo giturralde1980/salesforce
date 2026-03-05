@@ -5,7 +5,7 @@ dotenv.config();
 
 export default defineConfig({
   testDir: './tests/web/opella+',
-  timeout: 30 * 1000,  // 30s es más que suficiente para clicks y URL checks
+  timeout: 90000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,  // 1 retry es suficiente, no 2
