@@ -4,7 +4,7 @@ import LoginPage from '../../pages/LoginPage';
 import ProductSearchPage from '../../pages/ProductSearchPage';
 import 'dotenv/config';
 
-test.describe('Product Search Tests', () => {
+test.describe('Product Search Tests', { tag: '@smoke' }, () => {
   let homePage: HomePage;
   let loginPage: LoginPage;
   let productSearchPage: ProductSearchPage;
