@@ -24,7 +24,7 @@ jobs:
         run: npm install
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps msedge
 
       - name: Run regression tests
         run: npx playwright test --grep @smoke
