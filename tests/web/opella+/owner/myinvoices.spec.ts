@@ -1,12 +1,16 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../pages/HomePage';
-import LoginPage from '../../pages/LoginPage';
+import HomePage from '../../../pages/HomePage';
+import LoginPage from '../../../pages/LoginPage';
 import 'dotenv/config';
 
 // Reusable selector for the "no results" empty-state div
 const NO_RESULTS_SELECTOR = '.slds-text-color_weak.slds-align_absolute-center.slds-p-vertical_medium';
 
-test.describe('My Orders - Meine Bestellungen', () => {
+// NOTE: confirm the exact placeholder text by inspecting the input on Meine Rechnungen.
+// Using the generic type="search" selector as fallback until the placeholder is known.
+const SEARCH_INPUT_SELECTOR = 'input.slds-input[type="search"]';
+
+test.describe('My Invoices - Meine Rechnungen', () => {
   let homePage: HomePage;
   let loginPage: LoginPage;
 
@@ -21,10 +25,10 @@ test.describe('My Orders - Meine Bestellungen', () => {
     await page.waitForSelector('.slds-nav-vertical__section', { timeout: 15000 });
     await page.waitForTimeout(1000); // allow LWC to finish rendering nav items
 
-    // Navigate to Meine Bestellungen via left nav.
-    // Multiple DOM elements share data-name="myOrders" (desktop + mobile variants,
+    // Navigate to Meine Rechnungen via left nav.
+    // Multiple DOM elements share data-name="myInvoices" (desktop + mobile variants,
     // some hidden). Iterate all and force-click the first one that responds.
-    const candidates = await page.locator('[data-name="myOrders"]').all();
+    const candidates = await page.locator('[data-name="myInvoices"]').all();
     let clicked = false;
     for (const el of candidates) {
       try {
@@ -33,7 +37,7 @@ test.describe('My Orders - Meine Bestellungen', () => {
         break;
       } catch { /* try next candidate */ }
     }
-    if (!clicked) throw new Error('Could not click [data-name="myOrders"] — no candidate responded');
+    if (!clicked) throw new Error('Could not click [data-name="myInvoices"] — no candidate responded');
     await page.waitForTimeout(2000);
   });
 
@@ -44,7 +48,7 @@ test.describe('My Orders - Meine Bestellungen', () => {
   // ─── Search: no results ──────────────────────────────────────────────────
 
   test('Searching for an invalid code shows the empty-state message', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder="Suche nach Bestellnummer oder PZN oder Produktname"]');
+    const searchInput = page.locator(SEARCH_INPUT_SELECTOR);
     await expect(searchInput).toBeVisible({ timeout: 10000 });
     await searchInput.click();
     await searchInput.fill('test');
@@ -59,15 +63,15 @@ test.describe('My Orders - Meine Bestellungen', () => {
     expect(msgText?.trim().length).toBeGreaterThan(0);
   });
 
-  // ─── Search: valid order ─────────────────────────────────────────────────
+  // ─── Search: valid invoice ───────────────────────────────────────────────
 
-  test('Searching for a valid order number shows at least one result', async ({ page }) => {
-    const orderNumber = process.env.ORDER!;
+  test('Searching for a valid invoice number shows at least one result', async ({ page }) => {
+    const invoiceNumber = process.env.INVOICE!;
 
-    const searchInput = page.locator('input[placeholder="Suche nach Bestellnummer oder PZN oder Produktname"]');
+    const searchInput = page.locator(SEARCH_INPUT_SELECTOR);
     await expect(searchInput).toBeVisible({ timeout: 10000 });
     await searchInput.click();
-    await searchInput.fill(orderNumber);
+    await searchInput.fill(invoiceNumber);
 
     await page.locator('button[title="Suche."]').click();
     await page.waitForLoadState('networkidle', { timeout: 15000 });
@@ -75,7 +79,7 @@ test.describe('My Orders - Meine Bestellungen', () => {
     // The empty-state message must NOT be present
     await expect(page.locator(NO_RESULTS_SELECTOR)).toHaveCount(0, { timeout: 10000 });
 
-    // The order number must appear somewhere in the results
-    await expect(page.getByText(orderNumber, { exact: false })).toBeVisible({ timeout: 10000 });
+    // The invoice number must appear somewhere in the results
+    await expect(page.getByText(invoiceNumber, { exact: false })).toBeVisible({ timeout: 10000 });
   });
 });

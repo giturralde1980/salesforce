@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../../pages/HomePage';
-import LoginPage from '../../../pages/LoginPage';
-import MyCockpitPage from '../../../pages/MyCockpitPage';
-import MENU_ITEMS from '../../../fixtures/menuItems';
+import HomePage from '../../../../pages/HomePage';
+import LoginPage from '../../../../pages/LoginPage';
+import MyCockpitPage from '../../../../pages/MyCockpitPage';
+import MENU_ITEMS from '../../../../fixtures/menuItems';
 import 'dotenv/config';
 
 test.describe('Navigation Tests - Menu Items', () => {

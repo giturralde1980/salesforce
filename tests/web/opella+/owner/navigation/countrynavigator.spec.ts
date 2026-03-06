@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../../pages/HomePage';
-import CountryNavigatorPage, { AMERICAS_COUNTRIES, EUROPE_COUNTRIES, ALL_COUNTRIES } from '../../../pages/CountryNavigatorPage';
+import HomePage from '../../../../pages/HomePage';
+import CountryNavigatorPage, { AMERICAS_COUNTRIES, EUROPE_COUNTRIES, ALL_COUNTRIES } from '../../../../pages/CountryNavigatorPage';
 import 'dotenv/config';
 
 /**
@@ -8,7 +8,7 @@ import 'dotenv/config';
  * Americas (2): Brazil (BR), Mexico (MX)
  * Europe  (6): France (FR), Germany (DE), Italy (IT), Poland (PL), Portugal (PT), Spain (ES)
  */
-test.describe('@CHCCRM01-18649 Country Selector - Footer Panel', { tag: '@smoke' }, () => {
+test.describe('@CHCCRM01-18649 Country Selector - Footer Panel',() => {
   let homePage: HomePage;
   let countryPage: CountryNavigatorPage;
 

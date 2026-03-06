@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../pages/HomePage';
-import LoginPage from '../../pages/LoginPage';
+import HomePage from '../../../pages/HomePage';
+import LoginPage from '../../../pages/LoginPage';
 import 'dotenv/config';
 
 test.describe('Logout Tests', () => {

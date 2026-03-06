@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../pages/HomePage';
-import LoginPage from '../../pages/LoginPage';
-import ProductListPage from '../../pages/ProductListPage';
-import MyListsPage from '../../pages/MyListsPage';
+import HomePage from '../../../pages/HomePage';
+import LoginPage from '../../../pages/LoginPage';
+import ProductListPage from '../../../pages/ProductListPage';
+import MyListsPage from '../../../pages/MyListsPage';
 import 'dotenv/config';
 
 test.describe('Product List and Wishlist Tests', () => {

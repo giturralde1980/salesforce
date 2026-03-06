@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../pages/HomePage';
-import LoginPage from '../../pages/LoginPage';
-import ProductSearchPage from '../../pages/ProductSearchPage';
+import HomePage from '../../../pages/HomePage';
+import LoginPage from '../../../pages/LoginPage';
+import ProductSearchPage from '../../../pages/ProductSearchPage';
 import 'dotenv/config';
 
 test.describe('Product Search Tests', { tag: '@smoke' }, () => {

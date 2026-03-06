@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import HomePage from '../../pages/HomePage';
-import LoginPage from '../../pages/LoginPage';
-import ProductListPage from '../../pages/ProductListPage';
+import HomePage from '../../../pages/HomePage';
+import LoginPage from '../../../pages/LoginPage';
+import ProductListPage from '../../../pages/ProductListPage';
 import 'dotenv/config';
 
 test.describe('Simulate Order Creation', { tag: '@smoke' }, () => {
