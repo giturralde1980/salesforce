@@ -19,17 +19,22 @@ export interface SfQueryResult<T> {
 }
 
 /**
- * Obtains a Salesforce access token using the username-password OAuth flow.
- * Required env vars: SF_LOGIN_URL, SF_CLIENT_ID, SF_CLIENT_SECRET, SF_API_USERNAME, SF_API_PASSWORD
+ * Obtains a Salesforce access token using the client_credentials OAuth flow.
+ * Required env vars: SF_CLIENT_ID, SF_CLIENT_SECRET
  */
 export async function getSfAccessToken(request: APIRequestContext): Promise<SfTokenResponse> {
-  const res = await request.post(`${process.env.SF_LOGIN_URL}/services/oauth2/token`, {
-    form: {
-      grant_type:    'client_credentials',
-      client_id:     process.env.SF_CLIENT_ID!,
-      client_secret: process.env.SF_CLIENT_SECRET!,
-    },
-  });
+  const params = new URLSearchParams();
+  params.append('grant_type',    'client_credentials');
+  params.append('client_id',     process.env.SF_CLIENT_ID!);
+  params.append('client_secret', process.env.SF_CLIENT_SECRET!);
+
+  const res = await request.post(
+    'https://sanofi-chcrm-eu--uat1.sandbox.my.salesforce.com/services/oauth2/token',
+    {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: params.toString(),
+    }
+  );
 
   if (!res.ok()) {
     const body = await res.text();

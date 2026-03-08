@@ -39,7 +39,7 @@ test.describe('@CHCCRM01-18649 Country Selector - Footer Panel',() => {
 
   // ─── Americas section ────────────────────────────────────────────────────
 
-  test('Americas section displays exactly 2 countries: Brazil and Mexico', async () => {
+  test('Americas section displays exactly 2 countries: Brazil and Mexico',{ tag: ['@smoke'] } ,async () => {
     const names = await countryPage.getCountryNamesInSection('Americas');
     console.log(`Americas: ${names.join(', ')}`);
     expect(names).toHaveLength(2);
@@ -50,7 +50,7 @@ test.describe('@CHCCRM01-18649 Country Selector - Footer Panel',() => {
 
   // ─── Europe section ──────────────────────────────────────────────────────
 
-  test('Europe section displays exactly 6 countries: France, Germany, Italy, Poland, Portugal, Spain', async () => {
+  test('Europe section displays exactly 6 countries: France, Germany, Italy, Poland, Portugal, Spain', { tag: ['@smoke'] } ,async () => {
     const names = await countryPage.getCountryNamesInSection('Europe');
     console.log(`Europe: ${names.join(', ')}`);
     expect(names).toHaveLength(6);
@@ -63,7 +63,7 @@ test.describe('@CHCCRM01-18649 Country Selector - Footer Panel',() => {
   // Each country is its own test: isolated failure, independent retry, clear reporting.
 
   for (const country of ALL_COUNTRIES) {
-    test(`Clicking "${country.name}" navigates to a URL containing /${country.iso}/`, async ({ page }) => {
+    test(`Clicking "${country.name}" navigates to a URL containing /${country.iso}/`, { tag: ['@regression'] } ,async ({ page }) => {
       await countryPage.clickCountryByName(country.region, country.name);
 
       await page.waitForURL(

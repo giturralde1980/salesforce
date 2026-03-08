@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - '**'   # cualquier rama
-
+  workflow_dispatch:   # ejecución manual desde GitHub Actions
   repository_dispatch:
-    types: [jira-test-execution]  # ← añade esto
+    types: [jira-test-execution]
 
 jobs:
   regression:
