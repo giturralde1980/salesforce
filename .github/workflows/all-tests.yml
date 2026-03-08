@@ -1,0 +1,44 @@
+name: All Tests
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  all:
+    name: Run all tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps msedge
+
+      - name: Run all tests
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          TEST_PASSWORD_OWNER: ${{ secrets.TEST_PASSWORD_OWNER }}
+          PRODUCT_CODE: ${{ secrets.PRODUCT_CODE }}
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-all
+          path: playwright-report/
+          retention-days: 15

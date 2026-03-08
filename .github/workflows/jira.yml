@@ -1,0 +1,44 @@
+name: Jira Integration
+
+on:
+  workflow_dispatch:   # ejecución manual desde GitHub Actions
+  repository_dispatch:
+    types: [jira-test-execution]
+
+jobs:
+  jira:
+    name: Run Jira tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps msedge
+
+      - name: Run tests from Jira
+        run: npx playwright test --grep "@CHCCRM01-18649"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          TEST_PASSWORD_OWNER: ${{ secrets.TEST_PASSWORD_OWNER }}
+          PRODUCT_CODE: ${{ secrets.PRODUCT_CODE }}
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-jira
+          path: playwright-report/
+          retention-days: 15

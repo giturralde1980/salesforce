@@ -1,18 +1,13 @@
-name: Playwright Regression Tests
+name: Smoke Tests
 
 on:
-  push:
-    branches:
-      - '**'   # cualquier rama
-  workflow_dispatch:   # ejecución manual desde GitHub Actions
-  repository_dispatch:
-    types: [jira-test-execution]
+  workflow_dispatch:   # ejecución manual
 
 jobs:
-  regression:
-    name: Run @regression tests
+  smoke:
+    name: Run @smoke tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -29,7 +24,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps msedge
 
-      - name: Run regression tests
+      - name: Run smoke tests
         run: npx playwright test --grep @smoke
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
@@ -38,19 +33,10 @@ jobs:
           TEST_PASSWORD_OWNER: ${{ secrets.TEST_PASSWORD_OWNER }}
           PRODUCT_CODE: ${{ secrets.PRODUCT_CODE }}
 
-      - name: Run tests from Jira
-        run: npx playwright test --grep "@CHCCRM01-18649"
-        env:
-          BASE_URL: ${{ secrets.BASE_URL }}
-          TEST_EMAIL_OWNER: ${{ secrets.TEST_EMAIL_OWNER }}
-          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
-          TEST_PASSWORD_OWNER: ${{ secrets.TEST_PASSWORD_OWNER }}
-          PRODUCT_CODE: ${{ secrets.PRODUCT_CODE }}
-
       - name: Upload test report
-        if: always()   # sube el reporte aunque fallen los tests
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-smoke
           path: playwright-report/
           retention-days: 15

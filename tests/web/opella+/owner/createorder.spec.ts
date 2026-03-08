@@ -34,7 +34,7 @@ test.describe('Simulate Price Calculation / Order Creation', () => {
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  test('Order simulation: add product to cart, calculate price and empty cart', { tag: ['@smoke'] },async ({ page }) => {
+  test('Order simulation: add product to cart, calculate price and empty cart', { tag: ['@regression'] },async ({ page }) => {
     test.setTimeout(180000);
 
     const productCount = await productListPage.getProductCount();
@@ -139,7 +139,7 @@ test.describe('Simulate Price Calculation / Order Creation', () => {
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  test('Order creation: add product to cart, calculate price and proceed to checkout', { tag: ['@regression'] }, async ({ page }) => {
+  test('Order creation: add product to cart, calculate price and proceed to checkout',  async ({ page }) => {
     test.setTimeout(180000);
 
     const productCount = await productListPage.getProductCount();
