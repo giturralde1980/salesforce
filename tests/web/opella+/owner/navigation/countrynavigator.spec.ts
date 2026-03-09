@@ -63,7 +63,7 @@ test.describe('@CHCCRM01-18649 Country Selector - Footer Panel',() => {
   // Each country is its own test: isolated failure, independent retry, clear reporting.
 
   for (const country of ALL_COUNTRIES) {
-    test(`Clicking "${country.name}" navigates to a URL containing /${country.iso}/`, { tag: ['@regression'] } ,async ({ page }) => {
+    test(`Clicking "${country.name}" navigates to a URL containing /${country.iso}/`, async ({ page }) => {
       await countryPage.clickCountryByName(country.region, country.name);
 
       await page.waitForURL(
