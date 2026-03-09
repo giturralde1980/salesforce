@@ -34,7 +34,7 @@ test.describe('Simulate Price Calculation / Order Creation', () => {
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  test('Order simulation: add product to cart, calculate price and empty cart', { tag: ['@regression'] },async ({ page }) => {
+  test('Price simulation: Login, sleect product and add product to cart, calculate price and empty cart', { tag: ['@regression'] },async ({ page }) => {
     test.setTimeout(180000);
 
     const productCount = await productListPage.getProductCount();
