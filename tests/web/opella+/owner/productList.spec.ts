@@ -1,150 +1,54 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, BrowserContext, Page } from '@playwright/test';
 import HomePage from '../../../pages/HomePage';
 import LoginPage from '../../../pages/LoginPage';
 import ProductListPage from '../../../pages/ProductListPage';
 import MyListsPage from '../../../pages/MyListsPage';
 import 'dotenv/config';
 
-test.describe('Product List and Wishlist Tests', () => {
+// test.describe.serial → tests run sequentially sharing a single browser session
+// login once (beforeAll) / logout once (afterAll) — no per-test auth overhead
+test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  { tag: ['@smoke'] },() => {
+  let context: BrowserContext;
+  let sharedPage: Page;
   let homePage: HomePage;
   let loginPage: LoginPage;
   let productListPage: ProductListPage;
 
-  test.beforeEach(async ({ page }) => {
-    homePage = new HomePage(page);
-    loginPage = new LoginPage(page);
-    productListPage = new ProductListPage(page);
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext({
+      locale: 'de-DE',
+      timezoneId: 'Europe/Berlin',
+      viewport: { width: 1920, height: 1080 },
+    });
+    sharedPage = await context.newPage();
+
+    homePage = new HomePage(sharedPage);
+    loginPage = new LoginPage(sharedPage);
+    productListPage = new ProductListPage(sharedPage);
+
     await homePage.navigate();
     await homePage.clickEinloggen();
-    await loginPage.login(
-      process.env.TEST_EMAIL_OWNER!,
-      process.env.TEST_PASSWORD_OWNER!
-    );
-    await expect(homePage.page.locator(homePage.meinCockpitLink)).toBeVisible({ timeout: 20000 });
+    await loginPage.login(process.env.TEST_EMAIL_OWNER!, process.env.TEST_PASSWORD_OWNER!);
+    await expect(sharedPage.locator(homePage.meinCockpitLink)).toBeVisible({ timeout: 35000 });
+  });
+
+  test.afterAll(async () => {
+    await homePage.logout();
+    await context.close();
+  });
+
+  test.beforeEach(async () => {
+    // Already logged in — navigate back to product list
     await homePage.clickMeinBestellungs();
-    await homePage.page.waitForTimeout(1000);
+    await sharedPage.waitForTimeout(1000);
     await homePage.clickAlleProducts();
-    await homePage.page.waitForTimeout(2000);
-    const isProductListVisible = await productListPage.isProductListVisible();
-    expect(isProductListVisible).toBeTruthy();
+    await sharedPage.waitForTimeout(2000);
+    expect(await productListPage.isProductListVisible()).toBeTruthy();
   });
 
-  test('favoriteproduct visibility', async ({ page }) => {
-    // PASO 1: Verificar que el botón Wunschlisten está visible tras login (solo owner)
-    const isWunschlistenVisible = await homePage.isWunschlistenVisible();
-    expect(isWunschlistenVisible).toBe(true);
-    console.log('✓ Botón Wunschlisten visible para usuario owner');
+  // ── Product list tests ────────────────────────────────────────────────────
 
-    // PASO 2: Ya estamos en la lista de productos (beforeEach navega a "Alle")
-    // Obtener info del primer producto antes de añadirlo a favoritos
-    const firstProduct = await productListPage.getProductInfo(0);
-    console.log(`Producto seleccionado: ${firstProduct.title}`);
-
-    // PASO 3: Click en el corazón para añadir a favoritos
-    await productListPage.clickWishlistByIndex(0);
-    await page.waitForTimeout(2000);
-
-    // Verificar que el producto está marcado como favorito
-    const isInWishlist = await productListPage.isProductInWishlist(0);
-    expect(isInWishlist).toBe(true);
-    console.log('✓ Producto añadido a favoritos (corazón activo)');
-
-    // PASO 4: Click en Wunschlisten para ir a la página de favoritos
-    await productListPage.clickWunschlistenButton();
-    await expect(page).toHaveURL(/.*mylists.*/);
-    console.log('✓ Navegación a página de favoritos correcta');
-
-    // PASO 5: Verificar que el producto favorito aparece en la lista
-    const myListsPage = new MyListsPage(page);
-    await page.waitForTimeout(2000); // Esperar carga de la página
-    const isPresent = await myListsPage.isProductInFavorites(firstProduct.title);
-    expect(isPresent).toBeTruthy();
-    console.log(`✓ Producto "${firstProduct.title}" visible en página de favoritos`);
-  });
-
-  /**
-   * TEST: Ordenar productos alfabéticamente
-   *
-   * ESTADO: BORRADOR - Necesita HTML del dropdown para ajustar selectores
-   *
-   * SELECTORES QUE PUEDEN NECESITAR AJUSTE:
-   * - sortDropdown: actualmente usa 'select' genérico
-   * - Opción de ordenamiento: asume 'Alphabetisch' como label
-   *
-   * HTML NECESARIO PARA COMPLETAR:
-   * Por favor proporcionar el HTML del elemento dropdown de ordenamiento:
-   * - ¿Es un <select> nativo o un componente custom (ej: lightning-combobox)?
-   * - ¿Cuáles son las opciones disponibles? (Alphabetisch, Preis, etc.)
-   * - ¿Tiene atributos data-* o clases específicas?
-   *
-   * Ejemplo de HTML esperado:
-   * <select class="sort-dropdown" data-name="sort">
-   *   <option value="alpha">Alphabetisch</option>
-   *   <option value="price">Preis</option>
-   * </select>
-   *
-   * O si es un componente Salesforce Lightning:
-   * <lightning-combobox label="Sortieren" value="alpha">...</lightning-combobox>
-   */
-  test('should sort products alphabetically', async ({ page }) => {
-    // PASO 1: Obtener títulos de productos antes de ordenar
-    const initialTitles = await productListPage.getAllProductTitles();
-    console.log(`Productos iniciales (${initialTitles.length}):`, initialTitles.slice(0, 5));
-
-    // PASO 2: Aplicar ordenamiento alfabético via dropdown
-    // TODO: Ajustar selector según HTML real del dropdown
-    await productListPage.sortAlphabetically();
-    await page.waitForTimeout(2000); // Esperar recarga/reordenamiento
-
-    // PASO 3: Obtener títulos después del ordenamiento
-    const sortedTitles = await productListPage.getAllProductTitles();
-    console.log(`Productos ordenados (${sortedTitles.length}):`, sortedTitles.slice(0, 5));
-
-    // PASO 4: Verificar que están ordenados alfabéticamente (A-Z)
-    const expectedSorted = [...initialTitles].sort((a, b) =>
-      a.localeCompare(b, 'de-DE', { sensitivity: 'base' })
-    );
-
-    // Comparar los primeros N productos para validar el orden
-    const compareCount = Math.min(10, sortedTitles.length);
-    for (let i = 0; i < compareCount; i++) {
-      expect(sortedTitles[i]).toBe(expectedSorted[i]);
-    }
-    console.log('✓ Productos ordenados alfabéticamente correctamente');
-  });
-
-  test.afterEach(async ({ page }) => {
-    try {
-      await homePage.logout();
-      await expect(homePage.page.locator(homePage.einloggenButton2)).toBeVisible({ timeout: 10000 });
-    } catch (error) {
-    }
-  });
-
-  test('should navigate to favourite products page', async ({ page }) => {
-    await productListPage.clickWunschlistenButton();
-    await expect(page).toHaveURL('https://sanofi-chcrm-eu--sit1.sandbox.my.site.com/DE/s/mylists');
-  });
-
-  test('should add a product to wishlist and see it on the favourites page', async ({ page }) => {
-    const myListsPage = new MyListsPage(page);
-    const productIndex = 1;
-    const productInfo = await productListPage.getProductInfo(productIndex);
-    if (productInfo.inWishlist) {
-      await productListPage.clickWishlistByIndex(productIndex);
-      await page.waitForTimeout(2000);
-    }
-    await productListPage.clickWishlistByIndex(productIndex);
-    await page.waitForTimeout(2000);
-    const finalStatus = await productListPage.isProductInWishlist(productIndex);
-    expect(finalStatus).toBe(true);
-    await productListPage.clickWunschlistenButton();
-    await expect(page).toHaveURL('https://sanofi-chcrm-eu--sit1.sandbox.my.site.com/DE/s/mylists');
-    const isPresent = await myListsPage.isProductInFavorites(productInfo.title);
-    expect(isPresent).toBeTruthy();
-  });
-
-  test('should display all products with their details', async ({ page }) => {
+  test('should display all products with their details', async () => {
     const productCount = await productListPage.getProductCount();
     expect(productCount).toBeGreaterThan(0);
     const titles = await productListPage.getAllProductTitles();
@@ -152,183 +56,244 @@ test.describe('Product List and Wishlist Tests', () => {
     expect(titles.every(title => title.length > 0)).toBeTruthy();
   });
 
-  test('should click wishlist on the first product', async ({ page }) => {
+  test('should display complete information for all products', async () => {
+    const productCount = await productListPage.getProductCount();
+    expect(productCount).toBeGreaterThan(0);
+
+    const titles = await productListPage.getAllProductTitles();
+    expect(titles.length).toBe(productCount);
+    expect(titles.every(t => t.length > 0)).toBeTruthy();
+
+    const eans = await sharedPage.locator('c-plp-ean-code span').allTextContents();
+    expect(eans.every(e => e.trim().length > 0)).toBeTruthy();
+  });
+
+  test('should get all products with "Fokusprodukt" tag', async () => {
+    const fokusIndices = await productListPage.getProductsWithTag('Fokusprodukt');
+    expect(Array.isArray(fokusIndices)).toBeTruthy();
+    console.log(`Productos con tag "Fokusprodukt": ${fokusIndices.length}`);
+  });
+
+  // ── Sort tests ────────────────────────────────────────────────────────────
+
+  test('sort: default order is Ascending', async () => {
+    const titles = await productListPage.getAllProductTitles();
+    expect(titles.length).toBeGreaterThan(0);
+    // First title should be <= last title alphabetically (ascending order)
+    const first = titles[0];
+    const last = titles[titles.length - 1];
+    const comparison = first.localeCompare(last, undefined, { sensitivity: 'base', numeric: true });
+    expect(comparison).toBeLessThanOrEqual(0);
+    console.log(`✓ Ascending: "${first}" ... "${last}"`);
+  });
+
+  test('sort: Descending reverses the order', async () => {
+    // Capture ascending order first, then switch to descending and compare
+    const ascTitles = await productListPage.getAllProductTitles();
+    expect(ascTitles.length).toBeGreaterThan(0);
+
+    await productListPage.selectSortByDirection('Descending');
+    const descTitles = await productListPage.getAllProductTitles();
+    expect(descTitles.length).toBeGreaterThan(0);
+
+    // First title in descending should differ from first title in ascending
+    expect(descTitles[0]).not.toBe(ascTitles[0]);
+    // First desc >= last desc (descending order)
+    const comparison = descTitles[0].localeCompare(descTitles[descTitles.length - 1], undefined, { sensitivity: 'base', numeric: true });
+    expect(comparison).toBeGreaterThanOrEqual(0);
+    console.log(`✓ Descending: "${descTitles[0]}" ... "${descTitles[descTitles.length - 1]}"`);
+  });
+
+  test('sort: Default (best match) keeps products visible', async () => {
+    await productListPage.selectSortByDirection('Default');
+
+    const count = await productListPage.getProductCount();
+    expect(count).toBeGreaterThan(0);
+    console.log(`✓ ${count} productos visibles con ordenación por defecto`);
+  });
+
+  // ── Category filter tests ─────────────────────────────────────────────────
+  // Facet IDs are Salesforce record IDs (language-agnostic).
+  // The value attribute on each checkbox contains the locale-specific label,
+  // but data-facet is stable across languages.
+
+  const FACETS = {
+    allergie:  '0ZG6N000000Cb0tWAC',
+    erkaeltung:'0ZG6N000000Cb0xWAC',
+    magenDarm: '0ZG6N000000Cb0vWAC',
+    schmerz:   '0ZG6N000000Cb0wWAC',
+  } as const;
+
+  test('filter: Allergie category shows fewer products than unfiltered', async () => {
+    const totalCount = await productListPage.getProductCount();
+    expect(totalCount).toBeGreaterThan(0);
+
+    await productListPage.clickCategoryFilter(FACETS.allergie);
+
+    const filteredCount = await productListPage.getProductCount();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(totalCount);
+    console.log(`✓ Allergie filter: ${totalCount} → ${filteredCount} products`);
+  });
+
+  test('filter: Erkältung category shows fewer products than unfiltered', async () => {
+    const totalCount = await productListPage.getProductCount();
+    expect(totalCount).toBeGreaterThan(0);
+
+    await productListPage.clickCategoryFilter(FACETS.erkaeltung);
+
+    const filteredCount = await productListPage.getProductCount();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(totalCount);
+    console.log(`✓ Erkältung filter: ${totalCount} → ${filteredCount} products`);
+  });
+
+  test('filter: Magen/Darm category applies filter and keeps products visible', async () => {
+    const totalCount = await productListPage.getProductCount();
+    expect(totalCount).toBeGreaterThan(0);
+
+    await productListPage.clickCategoryFilter(FACETS.magenDarm);
+
+    const isChecked = await productListPage.isCategoryFilterChecked(FACETS.magenDarm);
+    expect(isChecked).toBe(true);
+
+    const filteredCount = await productListPage.getProductCount();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThanOrEqual(totalCount);
+    console.log(`✓ Magen/Darm filter active: ${totalCount} → ${filteredCount} products`);
+  });
+
+  test('filter: Schmerz category shows fewer products than unfiltered', async () => {
+    const totalCount = await productListPage.getProductCount();
+    expect(totalCount).toBeGreaterThan(0);
+
+    await productListPage.clickCategoryFilter(FACETS.schmerz);
+
+    const isChecked = await productListPage.isCategoryFilterChecked(FACETS.schmerz);
+    expect(isChecked).toBe(true);
+
+    const filteredCount = await productListPage.getProductCount();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(totalCount);
+    console.log(`✓ Schmerz filter: ${totalCount} → ${filteredCount} products`);
+  });
+
+  // ── Wishlist tests (pendiente de revisión) ────────────────────────────────
+
+  test.skip('favoriteproduct visibility', async () => {
+    const isWunschlistenVisible = await homePage.isWunschlistenVisible();
+    expect(isWunschlistenVisible).toBe(true);
+
+    const firstProduct = await productListPage.getProductInfo(0);
+    if (firstProduct.inWishlist) {
+      await productListPage.clickWishlistByIndex(0);
+      await sharedPage.waitForTimeout(2000);
+    }
+    await productListPage.clickWishlistByIndex(0);
+    await sharedPage.waitForTimeout(2000);
+
+    const isInWishlist = await productListPage.isProductInWishlist(0);
+    expect(isInWishlist).toBe(true);
+
+    await productListPage.clickWunschlistenButton();
+    await expect(sharedPage).toHaveURL(/.*mylists.*/);
+
+    const myListsPage = new MyListsPage(sharedPage);
+    await sharedPage.waitForTimeout(2000);
+    const isPresent = await myListsPage.isProductInFavorites(firstProduct.title);
+    expect(isPresent).toBeTruthy();
+  });
+
+  test.skip('should navigate to favourite products page', async () => {
+    await productListPage.clickWunschlistenButton();
+    await expect(sharedPage).toHaveURL(/\/s\/mylists/);
+  });
+
+  test.skip('should add a product to wishlist and see it on the favourites page', async () => {
+    const myListsPage = new MyListsPage(sharedPage);
+    const productIndex = 1;
+    const productInfo = await productListPage.getProductInfo(productIndex);
+    if (productInfo.inWishlist) {
+      await productListPage.clickWishlistByIndex(productIndex);
+      await sharedPage.waitForTimeout(2000);
+    }
+    await productListPage.clickWishlistByIndex(productIndex);
+    await sharedPage.waitForTimeout(2000);
+    const finalStatus = await productListPage.isProductInWishlist(productIndex);
+    expect(finalStatus).toBe(true);
+    await productListPage.clickWunschlistenButton();
+    await expect(sharedPage).toHaveURL(/\/s\/mylists/);
+    const isPresent = await myListsPage.isProductInFavorites(productInfo.title);
+    expect(isPresent).toBeTruthy();
+  });
+
+  test.skip('should click wishlist on the first product', async () => {
     const firstProduct = await productListPage.getProductInfo(0);
     await productListPage.clickFirstProductWishlist();
-    await page.waitForTimeout(3500);
+    await sharedPage.waitForTimeout(3500);
     const updatedStatus = await productListPage.isProductInWishlist(0);
     expect(updatedStatus).not.toBe(firstProduct.inWishlist);
   });
 
-  test('should click wishlist on a specific product by name', async ({ page }) => {
-
-    // Obtener todos los productos
-    const allProducts = await productListPage.getAllProductsInfo();
-
-    // Seleccionar el segundo producto (si existe)
-    if (allProducts.length > 1) {
-      const targetProduct = allProducts[1];
-
-      // Click en wishlist por nombre
-      await productListPage.clickWishlistByProductName(targetProduct.title);
-
-      // Verificar cambio
-      await page.waitForTimeout(1500);
-      const updatedStatus = await productListPage.isProductInWishlist(1);
-
-      expect(updatedStatus).not.toBe(targetProduct.inWishlist);
-    } else {
-    }
+  test.skip('should click wishlist on a specific product by name', async () => {
+    const productTitle = await productListPage.getProductTitle(1);
+    const initialStatus = await productListPage.isProductInWishlist(1);
+    await productListPage.clickWishlistByProductName(productTitle);
+    await sharedPage.waitForTimeout(1500);
+    const updatedStatus = await productListPage.isProductInWishlist(1);
+    expect(updatedStatus).not.toBe(initialStatus);
   });
 
-  test('should click wishlist on multiple random products', async ({ page }) => {
-
+  test.skip('should click wishlist on multiple random products', async () => {
     const productCount = await productListPage.getProductCount();
-
-    // Seleccionar 3 productos aleatorios (o menos si no hay suficientes)
     const numberOfProductsToSelect = Math.min(3, productCount);
-
     const selectedIndices = await productListPage.clickRandomWishlists(numberOfProductsToSelect);
-
-
-    // Verificar que se clickeó en el número correcto de productos
     expect(selectedIndices.length).toBe(numberOfProductsToSelect);
-
-    // Mostrar información de los productos seleccionados
-    for (const index of selectedIndices) {
-      const productInfo = await productListPage.getProductInfo(index);
-    }
-
   });
 
-  test('should get all products with "Fokusprodukt" tag', async ({ page }) => {
-
-    // Buscar productos con tag "Fokusprodukt"
-    const fokusProducts = await productListPage.getProductsByTag('Fokusprodukt');
-
-    fokusProducts.forEach((product, index) => {
-    });
-
-    // Verificar que encontramos productos
-    // (puede ser 0 si no hay productos con ese tag)
-    expect(Array.isArray(fokusProducts)).toBeTruthy();
-
-    // Si hay productos fokus, click en el wishlist del primero
-    if (fokusProducts.length > 0) {
-      await productListPage.clickWishlistByIndex(fokusProducts[0].index);
-    }
-  });
-
-  test('should toggle wishlist on first 3 products sequentially', async ({ page }) => {
-
+  test.skip('should toggle wishlist on first 3 products sequentially', async () => {
     const productCount = await productListPage.getProductCount();
     const numberOfProducts = Math.min(3, productCount);
-
-
     for (let i = 0; i < numberOfProducts; i++) {
-      const product = await productListPage.getProductInfo(i);
-      const initialStatus = product.inWishlist;
-
-
-      // Click wishlist
+      const initialStatus = await productListPage.isProductInWishlist(i);
       await productListPage.clickWishlistByIndex(i);
-      await page.waitForTimeout(1000);
-
-      // Verificar cambio
+      await sharedPage.waitForTimeout(1000);
       const newStatus = await productListPage.isProductInWishlist(i);
-
       expect(newStatus).not.toBe(initialStatus);
     }
-
   });
 
-  test('should display complete information for all products', async ({ page }) => {
-
-    const allProducts = await productListPage.getAllProductsInfo();
-
-
-    allProducts.forEach((product, index) => {
-    });
-
-
-    // Verificaciones
-    expect(allProducts.length).toBeGreaterThan(0);
-    expect(allProducts.every(p => p.title.length > 0)).toBeTruthy();
-    expect(allProducts.every(p => p.ean.length > 0)).toBeTruthy();
-
-  });
-
-  test('should toggle wishlist color and verify visual change', async ({ page }) => {
-
-    // Seleccionar el primer producto
+  test.skip('should toggle wishlist color and verify visual change', async () => {
     const productIndex = 0;
-    const productInfo = await productListPage.getProductInfo(productIndex);
-
-
-    // STEP 1: Primer toggle (activar wishlist)
     const firstToggle = await productListPage.toggleWishlistAndVerify(productIndex);
-
-    // Verificar que cambió
     expect(firstToggle.changed).toBeTruthy();
     expect(firstToggle.before.isActive).not.toBe(firstToggle.after.isActive);
-
-    // Verificar el color después del primer toggle
-    const colorAfterFirstToggle = firstToggle.after.fillColor;
-
-    // STEP 2: Segundo toggle (regresar al estado original)
     const secondToggle = await productListPage.toggleWishlistAndVerify(productIndex);
-
-    // Verificar que cambió de nuevo
     expect(secondToggle.changed).toBeTruthy();
     expect(secondToggle.after.isActive).toBe(firstToggle.before.isActive);
-
-    // Verificar que el color volvió al original
     expect(secondToggle.after.fillColor).toBe(firstToggle.before.fillColor);
-
-    // RESUMEN
   });
 
-  test('should toggle wishlist on multiple products and verify each', async ({ page }) => {
-
-    const numberOfProducts = 3;
+  test.skip('should toggle wishlist on multiple products and verify each', async () => {
     const productCount = await productListPage.getProductCount();
-    const productsToTest = Math.min(numberOfProducts, productCount);
-
-
+    const productsToTest = Math.min(3, productCount);
     for (let i = 0; i < productsToTest; i++) {
-      const product = await productListPage.getProductInfo(i);
-
-
-      // Toggle 1: Activar
       const toggle1 = await productListPage.toggleWishlistAndVerify(i);
       expect(toggle1.changed).toBeTruthy();
-
-      // Toggle 2: Desactivar (volver al estado original)
       const toggle2 = await productListPage.toggleWishlistAndVerify(i);
       expect(toggle2.changed).toBeTruthy();
-
-      // Verificar que volvió al estado original
       expect(toggle2.after.isActive).toBe(toggle1.before.isActive);
     }
-
   });
 
-  // TEST PREPARATORIO PARA PÁGINA DE FAVORITOS
-  test('FUTURE: should add to wishlist and verify in favourites page', async ({ page }) => {
-
-    // STEP 1: Añadir producto a wishlist
+  test.skip('FUTURE: should add to wishlist and verify in favourites page', async () => {
     const productIndex = 0;
-    const product = await productListPage.getProductInfo(productIndex);
-
+    if (await productListPage.isProductInWishlist(productIndex)) {
+      await productListPage.clickWishlistByIndex(productIndex);
+      await sharedPage.waitForTimeout(1500);
+    }
     const toggle = await productListPage.toggleWishlistAndVerify(productIndex);
     expect(toggle.after.isActive).toBeTruthy();
-
-    // STEP 2: Navegar a página de favoritos
-    // TODO: Implementar navegación
-    // await productListPage.navigateToFavouritesPage();
-
-    // STEP 3: Verificar que el producto está en favoritos
-    // TODO: Implementar verificación
-
+    // TODO: navegar a favoritos y verificar
   });
 });

@@ -22,6 +22,7 @@ export default class ProductListPage {
   readonly productTag: string;
   readonly wunschlisteButton: string;
   readonly sortDropdown: string;
+  readonly sortDropdownItem: string;
 
   constructor(page: Page) {
     this.page = page;
@@ -37,7 +38,8 @@ export default class ProductListPage {
     this.quantityInput = '.b2b-quantity-field';
     this.productTag = '.b2b-flag';
     this.wunschlisteButton = '.slds-button.slds-button_neutral.b2b-buttons';
-    this.sortDropdown = 'select';
+    this.sortDropdown = 'button.b2b-buttons[aria-haspopup="true"]';
+    this.sortDropdownItem = 'li.slds-dropdown__item[data-rule]';
   }
 
   /**
@@ -406,69 +408,150 @@ export default class ProductListPage {
   }
 
   /**
-   * Sort products alphabetically
-   *
-   * NOTA: Los selectores pueden necesitar ajuste según el HTML real.
-   *
-   * Si es un <select> nativo:
-   *   this.sortDropdown = 'select.sort-dropdown' o similar
-   *   Usar: await this.page.selectOption(this.sortDropdown, { label: 'Alphabetisch' });
-   *
-   * Si es un lightning-combobox de Salesforce:
-   *   this.sortDropdown = 'lightning-combobox[name="sort"]'
-   *   Usar: await this.page.click(this.sortDropdown);
-   *         await this.page.click('lightning-base-combobox-item[data-value="alpha"]');
-   *
-   * Si es un custom dropdown con divs:
-   *   this.sortDropdown = '.custom-dropdown-trigger'
-   *   this.sortOptionAlpha = '[data-value="alphabetisch"]'
+   * Abre el dropdown de ordenación
+   */
+  async openSortDropdown(): Promise<void> {
+    const btn = this.page.locator(this.sortDropdown);
+    await btn.waitFor({ state: 'visible', timeout: 10000 });
+    await btn.click();
+    // LWC dropdown shows/hides via CSS class on the trigger — wait for animation
+    await this.page.waitForTimeout(800);
+  }
+
+  /**
+   * Selecciona una opción de ordenación por dirección (language-agnostic).
+   * El span.slds-truncate tiene title="Label (Direction)" — buscamos por el sufijo en inglés.
+   * Valores: 'Ascending' | 'Descending' | 'Default'
+   */
+  async selectSortByDirection(direction: 'Ascending' | 'Descending' | 'Default'): Promise<void> {
+    await this.openSortDropdown();
+    // The span text content ends with "(Ascending)" / "(Descending)" / "(Default)" — always English
+    await this.page.locator('li.slds-dropdown__item a')
+      .filter({ hasText: `(${direction})` })
+      .click();
+    await this.page.waitForLoadState('networkidle', { timeout: 15000 });
+    await this.waitForProductsToLoad();
+  }
+
+  /**
+   * Devuelve la dirección de la opción actualmente seleccionada.
+   * Abre el dropdown, lee el aria-checked y extrae el sufijo inglés del texto, luego cierra.
+   */
+  async getCurrentSortDirection(): Promise<string> {
+    const btn = this.page.locator(this.sortDropdown);
+    await btn.waitFor({ state: 'visible', timeout: 10000 });
+    await btn.click(); // open
+    await this.page.waitForTimeout(600);
+
+    let direction = '';
+    try {
+      // aria-checked="true" marks the active item when the dropdown is open
+      const checkedSpan = this.page.locator('li.slds-dropdown__item a[aria-checked="true"] span.slds-truncate').first();
+      const text = await checkedSpan.textContent({ timeout: 3000 });
+      // text = "Produktname (A–Z) (Ascending)" → extract last parenthetical (always English)
+      const match = text?.match(/\(([^)]+)\)\s*$/);
+      direction = match?.[1] ?? '';
+    } catch { /* ignore — direction stays '' */ }
+
+    // Close dropdown by clicking button again (toggle)
+    await btn.click();
+    await this.page.waitForTimeout(300);
+    return direction;
+  }
+
+  /** @deprecated — usar selectSortByDirection */
+  async selectSortByRule(rule: 'Produktname (A–Z)' | 'Produktname (Z–A)' | 'Beste Übereinstimmung'): Promise<void> {
+    const map: Record<string, 'Ascending' | 'Descending' | 'Default'> = {
+      'Produktname (A–Z)': 'Ascending',
+      'Produktname (Z–A)': 'Descending',
+      'Beste Übereinstimmung': 'Default',
+    };
+    await this.selectSortByDirection(map[rule] ?? 'Ascending');
+  }
+
+  /** @deprecated — usar getCurrentSortDirection */
+  async getCurrentSortLabel(): Promise<string> {
+    return this.getCurrentSortDirection();
+  }
+
+  // ── Category filters ────────────────────────────────────────────────────────
+
+  /**
+   * Clica un checkbox de filtro de categoría identificado por su data-facet (Salesforce ID).
+   * Usa data-facet en lugar del value textual para ser language-agnostic.
+   */
+  async clickCategoryFilter(facetId: string): Promise<void> {
+    // Navigate to the parent .slds-checkbox and click its label — LWC handles events on the label,
+    // not on the hidden input. This also avoids the sticky h3 header intercepting the click.
+    const label = this.page.locator(`div.slds-checkbox:has(input[data-facet="${facetId}"]) label.slds-checkbox__label`);
+    await label.waitFor({ state: 'visible', timeout: 10000 });
+    await label.click();
+    await this.page.waitForLoadState('networkidle', { timeout: 15000 });
+    await this.waitForProductsToLoad();
+  }
+
+  /**
+   * Devuelve true si el checkbox de categoría está marcado.
+   */
+  async isCategoryFilterChecked(facetId: string): Promise<boolean> {
+    return this.page.locator(`input[type="checkbox"][data-facet="${facetId}"]`).isChecked();
+  }
+
+  /**
+   * Devuelve los índices de los productos que tienen el tag indicado (sin chequear wishlist)
+   */
+  async getProductsWithTag(tagName: string): Promise<number[]> {
+    await this.waitForProductsToLoad();
+    const count = await this.page.locator(this.productCard).count();
+    const result: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const tags = await this.page.locator(this.productCard).nth(i).locator(this.productTag).allTextContents();
+      if (tags.some(tag => tag.includes(tagName))) result.push(i);
+    }
+    return result;
+  }
+
+  /**
+   * @deprecated Usar selectSortByRule('Produktname (A–Z)') en su lugar
    */
   async sortAlphabetically(): Promise<void> {
-    try {
-      // Intentar como select nativo primero
-      const selectExists = await this.page.locator('select').first().isVisible();
-      if (selectExists) {
-        await this.page.selectOption(this.sortDropdown, { label: 'Alphabetisch' });
-      } else {
-        // Si no es select nativo, intentar como dropdown custom
-        // TODO: Ajustar según el HTML real del componente
-        const dropdownTrigger = this.page.locator('[class*="sort"], [class*="dropdown"], [class*="combobox"]').first();
-        await dropdownTrigger.click();
-        await this.page.waitForTimeout(500);
-
-        // Click en la opción alfabética
-        const alphaOption = this.page.locator('text=Alphabetisch').first();
-        await alphaOption.click();
-      }
-
-      await this.page.waitForTimeout(2000); // Esperar reordenamiento
-    } catch (error: any) {
-      console.log('⚠️  Error al ordenar:', error.message);
-      console.log('Por favor proporcionar HTML del dropdown para ajustar selectores');
-      throw error;
-    }
+    await this.selectSortByRule('Produktname (A–Z)');
   }
 
   /**
-   * Get current sort order from dropdown (if visible)
+   * @deprecated Usar getCurrentSortLabel() en su lugar
    */
   async getCurrentSortOrder(): Promise<string | null> {
+    return this.getCurrentSortLabel();
+  }
+
+  private async getWishlistFillColor(index: number): Promise<string> {
+    const wishlistBtn = this.page.locator(this.productCard).nth(index).locator(this.wishlistButton);
     try {
-      const selectExists = await this.page.locator('select').first().isVisible();
-      if (selectExists) {
-        return await this.page.locator(this.sortDropdown).inputValue();
-      }
-      return null;
+      const fill = await wishlistBtn.locator('svg path').first().getAttribute('fill');
+      return fill ?? '';
     } catch {
-      return null;
+      return '';
     }
   }
 
-  /**
-   * Toggle wishlist state and verify the change
-   * NOTE: Not yet implemented
-   */
-  async toggleWishlistAndVerify(_index: number): Promise<any> {
-    throw new Error('toggleWishlistAndVerify not implemented');
+  async toggleWishlistAndVerify(index: number): Promise<{
+    changed: boolean;
+    before: { isActive: boolean; fillColor: string };
+    after: { isActive: boolean; fillColor: string };
+  }> {
+    const beforeIsActive = await this.isProductInWishlist(index);
+    const beforeColor = await this.getWishlistFillColor(index);
+
+    await this.clickWishlistByIndex(index);
+
+    const afterIsActive = await this.isProductInWishlist(index);
+    const afterColor = await this.getWishlistFillColor(index);
+
+    return {
+      changed: beforeIsActive !== afterIsActive,
+      before: { isActive: beforeIsActive, fillColor: beforeColor },
+      after: { isActive: afterIsActive, fillColor: afterColor },
+    };
   }
 }
