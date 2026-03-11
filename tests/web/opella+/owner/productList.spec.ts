@@ -7,7 +7,7 @@ import 'dotenv/config';
 
 // test.describe.serial → tests run sequentially sharing a single browser session
 // login once (beforeAll) / logout once (afterAll) — no per-test auth overhead
-test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  { tag: ['@smoke'] },() => {
+test.describe.serial('Product page functionality: Filtering categories and sorting.',  { tag: ['@smoke'] },() => {
   let context: BrowserContext;
   let sharedPage: Page;
   let homePage: HomePage;
@@ -46,9 +46,20 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     expect(await productListPage.isProductListVisible()).toBeTruthy();
   });
 
+  test.afterEach(async ({}, testInfo) => {
+    if (testInfo.status === 'passed') {
+      const safeName = testInfo.title.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+      await sharedPage.screenshot({
+        path: `test-results/screenshots/${safeName}.png`,
+        fullPage: true,
+      });
+      console.log(`📸 Screenshot saved: ${safeName}.png`);
+    }
+  });
+
   // ── Product list tests ────────────────────────────────────────────────────
 
-  test('should display all products with their details', async () => {
+  test('Verify that should display all products with their details', async () => {
     const productCount = await productListPage.getProductCount();
     expect(productCount).toBeGreaterThan(0);
     const titles = await productListPage.getAllProductTitles();
@@ -76,7 +87,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
 
   // ── Sort tests ────────────────────────────────────────────────────────────
 
-  test('sort: default order is Ascending', async () => {
+  test('Verify sort: default order is Ascending', async () => {
     const titles = await productListPage.getAllProductTitles();
     expect(titles.length).toBeGreaterThan(0);
     // First title should be <= last title alphabetically (ascending order)
@@ -87,7 +98,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     console.log(`✓ Ascending: "${first}" ... "${last}"`);
   });
 
-  test('sort: Descending reverses the order', async () => {
+  test('Verify sort: Descending reverses the order', async () => {
     // Capture ascending order first, then switch to descending and compare
     const ascTitles = await productListPage.getAllProductTitles();
     expect(ascTitles.length).toBeGreaterThan(0);
@@ -104,7 +115,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     console.log(`✓ Descending: "${descTitles[0]}" ... "${descTitles[descTitles.length - 1]}"`);
   });
 
-  test('sort: Default (best match) keeps products visible', async () => {
+  test('Verify sort: Default (best match) keeps products visible', async () => {
     await productListPage.selectSortByDirection('Default');
 
     const count = await productListPage.getProductCount();
@@ -124,7 +135,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     schmerz:   '0ZG6N000000Cb0wWAC',
   } as const;
 
-  test('filter: Allergie category shows fewer products than unfiltered', async () => {
+  test('Verify filter: Allergie category shows fewer products than unfiltered', async () => {
     const totalCount = await productListPage.getProductCount();
     expect(totalCount).toBeGreaterThan(0);
 
@@ -136,7 +147,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     console.log(`✓ Allergie filter: ${totalCount} → ${filteredCount} products`);
   });
 
-  test('filter: Erkältung category shows fewer products than unfiltered', async () => {
+  test('Verify filter: Erkältung category shows fewer products than unfiltered', async () => {
     const totalCount = await productListPage.getProductCount();
     expect(totalCount).toBeGreaterThan(0);
 
@@ -148,7 +159,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     console.log(`✓ Erkältung filter: ${totalCount} → ${filteredCount} products`);
   });
 
-  test('filter: Magen/Darm category applies filter and keeps products visible', async () => {
+  test('Verify filter: Magen/Darm category applies filter and keeps products visible', async () => {
     const totalCount = await productListPage.getProductCount();
     expect(totalCount).toBeGreaterThan(0);
 
@@ -163,7 +174,7 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     console.log(`✓ Magen/Darm filter active: ${totalCount} → ${filteredCount} products`);
   });
 
-  test('filter: Schmerz category shows fewer products than unfiltered', async () => {
+  test('Verify filter: Schmerz category shows fewer products than unfiltered', async () => {
     const totalCount = await productListPage.getProductCount();
     expect(totalCount).toBeGreaterThan(0);
 
@@ -176,6 +187,32 @@ test.describe.serial('Product page functionality: Filters, Sort and Wishlist',  
     expect(filteredCount).toBeGreaterThan(0);
     expect(filteredCount).toBeLessThan(totalCount);
     console.log(`✓ Schmerz filter: ${totalCount} → ${filteredCount} products`);
+  });
+
+  // ── Search tests ──────────────────────────────────────────────────────────
+
+  test('Verify search: valid product code returns results', async () => {
+    const searchCode = process.env.PRODUCT_CODE!;
+    await homePage.navigate();
+
+    await sharedPage.locator(homePage.productSearchInput).fill(searchCode);
+    await sharedPage.locator(homePage.productSearchInput).press('Enter');
+
+    await expect(sharedPage.locator(`text=${searchCode}`).first()).toBeVisible({ timeout: 15000 });
+    console.log(`✓ Product code "${searchCode}" found in search results`);
+  });
+
+  test('Verify search: non-existent product code returns no results', async () => {
+    const searchCode = 'NOEXISTSXYZ999';
+    await homePage.navigate();
+
+    await sharedPage.locator(homePage.productSearchInput).fill(searchCode);
+    await sharedPage.locator(homePage.productSearchInput).press('Enter');
+
+    await sharedPage.waitForTimeout(3000);
+    const pageContent = await sharedPage.content();
+    expect(pageContent.includes(searchCode)).toBeFalsy();
+    console.log(`✓ No results found for "${searchCode}"`);
   });
 
   // ── Wishlist tests (pendiente de revisión) ────────────────────────────────
