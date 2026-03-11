@@ -48,12 +48,10 @@ test.describe.serial('Product page functionality: Filtering categories and sorti
 
   test.afterEach(async ({}, testInfo) => {
     if (testInfo.status === 'passed') {
-      const safeName = testInfo.title.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
-      await sharedPage.screenshot({
-        path: `test-results/screenshots/${safeName}.png`,
-        fullPage: true,
+      await testInfo.attach('screenshot', {
+        body: await sharedPage.screenshot({ fullPage: true }),
+        contentType: 'image/png',
       });
-      console.log(`📸 Screenshot saved: ${safeName}.png`);
     }
   });
 
