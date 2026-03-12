@@ -1,52 +1,90 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, BrowserContext, Page } from '@playwright/test';
 import HomePage from '../../../../pages/HomePage';
 import LoginPage from '../../../../pages/LoginPage';
 import MyCockpitPage from '../../../../pages/MyCockpitPage';
-import MENU_ITEMS from '../../../../fixtures/menuItems';
 import 'dotenv/config';
 
-test.describe('Navigation Tests - Menu Items', () => {
+// Owner left-nav items — data-name is Salesforce internal (language-agnostic)
+const OWNER_NAV_ITEMS = [
+  'myOrders',
+  'myInvoices',
+  'payments',
+  'myContracts',
+  'customerService',
+  'profile',
+  'myEconsentPreferences',
+] as const;
+
+// Single login/logout via beforeAll/afterAll — no per-test auth overhead
+test.describe.serial('Left Navigation - Owner menu items', { tag: ['@smoke'] }, () => {
+  let context: BrowserContext;
+  let sharedPage: Page;
   let homePage: HomePage;
   let loginPage: LoginPage;
   let myCockpitPage: MyCockpitPage;
 
-  test.beforeEach(async ({ page }) => {
-    homePage = new HomePage(page);
-    loginPage = new LoginPage(page);
-    myCockpitPage = new MyCockpitPage(page);
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext({
+      locale: 'de-DE',
+      timezoneId: 'Europe/Berlin',
+      viewport: { width: 1920, height: 1080 },
+    });
+    sharedPage = await context.newPage();
+
+    homePage      = new HomePage(sharedPage);
+    loginPage     = new LoginPage(sharedPage);
+    myCockpitPage = new MyCockpitPage(sharedPage);
+
     await homePage.navigate();
     await homePage.clickEinloggen();
     await loginPage.login(process.env.TEST_EMAIL_OWNER!, process.env.TEST_PASSWORD_OWNER!);
-    await page.waitForTimeout(2000);
-    await homePage.clickMeinCockpit();
-    await page.waitForSelector('.slds-nav-vertical__section', { timeout: 15000 });
-    await page.waitForTimeout(1000);
+    await expect(sharedPage.locator(homePage.meinCockpitLink)).toBeVisible({ timeout: 35000 });
   });
 
-  test('Verify all owner menu items exist and clicking shows content', async ({ page }) => {
-    const menuItems = MENU_ITEMS.owner;
-    for (const itemName of menuItems) {
-      const count = await page.locator(`[data-name="${itemName}"]`).count();
-      expect(count).toBeGreaterThan(0);
-      const initialMainContent = await page.locator('main, [role="main"], .slds-col').first().textContent();
-      const initialLength = initialMainContent ? initialMainContent.trim().length : 0;
-      const selector = `[data-name="${itemName}"]`;
-      const elements = await page.locator(selector).all();
-      let clicked = false;
-      for (const el of elements) {
-        try {
-          await el.click({ force: true, timeout: 5000 });
-          clicked = true;
-          break;
-        } catch (e) {
-        }
-      }
-      expect(clicked).toBe(true);
-      await page.waitForTimeout(1500);
-      const newMainContent = await page.locator('main, [role="main"], .slds-col').first().textContent();
-      const newLength = newMainContent ? newMainContent.trim().length : 0;
-      const hasContent = newLength > 50;
-      expect(hasContent).toBe(true);
+  test.afterAll(async () => {
+    await homePage.navigate();
+    await homePage.logout();
+    await context.close();
+  });
+
+  test.beforeEach(async () => {
+    await homePage.navigate();
+    await homePage.clickMeinCockpit();
+    await sharedPage.waitForSelector('.slds-nav-vertical__section', { timeout: 15000 });
+    await sharedPage.waitForTimeout(1000);
+  });
+
+  test.afterEach(async ({}, testInfo) => {
+    if (testInfo.status === 'passed') {
+      await testInfo.attach('screenshot', {
+        body: await sharedPage.screenshot({ fullPage: true }),
+        contentType: 'image/png',
+      });
     }
   });
+
+  // ── One test per nav item — granular failure reporting ────────────────────
+
+  for (const navKey of OWNER_NAV_ITEMS) {
+    test(`left nav: "${navKey}" is visible and loads content`, async () => {
+      // Confirm the item is visible in the nav using MyCockpitPage helper
+      const navData = await myCockpitPage.getAllSectionItemsData();
+      const item = navData.items.find(i => i.dataName === navKey);
+      expect(item, `Nav item "[data-name="${navKey}"]" not found or not visible`).toBeDefined();
+
+      // Click via native JS — reliable for LWC components
+      await sharedPage.evaluate((key) => {
+        const el = document.querySelector(`[data-name="${key}"]`) as HTMLElement | null;
+        el?.click();
+      }, navKey);
+
+      await sharedPage.waitForLoadState('networkidle', { timeout: 20000 });
+
+      // Verify meaningful content loaded in the main area
+      const content = await sharedPage.locator('.slds-col, main, [role="main"]').first().textContent();
+      expect(content?.trim().length ?? 0, `No content loaded after clicking "${navKey}"`).toBeGreaterThan(50);
+
+      console.log(`✓ "${navKey}" section loaded`);
+    });
+  }
 });
