@@ -84,7 +84,14 @@ test.describe.serial('Top Menu Bar - Owner navigation', { tag: ['@smoke'] }, () 
         await sharedPage.goto(process.env.BASE_URL! + item.href);
       }
 
-      await sharedPage.waitForLoadState('networkidle', { timeout: 20000 });
+      // Wait until LWC finishes client-side rendering (avoids networkidle hanging on SF pages)
+      await sharedPage.waitForFunction(
+        () => {
+          const el = document.querySelector('main, [role="main"]');
+          return (el?.textContent?.trim().length ?? 0) > 50;
+        },
+        { timeout: 30000 }
+      );
 
       const content = await sharedPage.locator('main, [role="main"]').first().textContent();
       expect(
