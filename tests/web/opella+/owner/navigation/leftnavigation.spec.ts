@@ -78,8 +78,6 @@ test.describe.serial('Left Navigation - Owner menu items', { tag: ['@smoke'] }, 
         el?.click();
       }, navKey);
 
-      await sharedPage.waitForLoadState('networkidle', { timeout: 20000 });
-
       // Wait until LWC has finished client-side rendering (adapts to CI/local speed)
       await sharedPage.waitForFunction(
         () => {

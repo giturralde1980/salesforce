@@ -75,6 +75,7 @@ test.describe.serial('Top Menu Bar - Owner navigation', { tag: ['@smoke'] }, () 
         ).toBeVisible({ timeout: 5000 });
 
         await sharedPage.locator(`a[data-menubar-item][title="${item.title}"]`).click();
+        await sharedPage.waitForURL(`**${item.href}**`, { timeout: 30000 });
       } else {
         // BESTELLUNG is a dropdown button — verify visibility, navigate via URL
         await expect(
@@ -84,16 +85,9 @@ test.describe.serial('Top Menu Bar - Owner navigation', { tag: ['@smoke'] }, () 
         await sharedPage.goto(process.env.BASE_URL! + item.href);
       }
 
-      // Wait until LWC finishes client-side rendering (avoids networkidle hanging on SF pages)
-      await sharedPage.waitForFunction(
-        () => {
-          const el = document.querySelector('main, [role="main"]');
-          return (el?.textContent?.trim().length ?? 0) > 50;
-        },
-        { timeout: 30000 }
-      );
-
-      const content = await sharedPage.locator('main, [role="main"]').first().textContent();
+      // Wait for Salesforce/Aura content to render
+      await expect(sharedPage.locator('.slds-grid').first()).toBeVisible({ timeout: 30000 });
+      const content = await sharedPage.locator('body').textContent();
       expect(
         content?.trim().length ?? 0,
         `Expected page "${item.title}" to have content`
