@@ -80,9 +80,17 @@ test.describe.serial('Left Navigation - Owner menu items', { tag: ['@smoke'] }, 
 
       await sharedPage.waitForLoadState('networkidle', { timeout: 20000 });
 
-      // Verify meaningful content loaded in the main area
+      // Wait until LWC has finished client-side rendering (adapts to CI/local speed)
+      await sharedPage.waitForFunction(
+        () => {
+          const el = document.querySelector('.slds-col, main, [role="main"]');
+          return (el?.textContent?.trim().length ?? 0) > 200;
+        },
+        { timeout: 20000 }
+      );
+
       const content = await sharedPage.locator('.slds-col, main, [role="main"]').first().textContent();
-      expect(content?.trim().length ?? 0, `No content loaded after clicking "${navKey}"`).toBeGreaterThan(50);
+      expect(content?.trim().length ?? 0, `No content loaded after clicking "${navKey}"`).toBeGreaterThan(200);
 
       console.log(`✓ "${navKey}" section loaded`);
     });

@@ -1,17 +1,95 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import HomePage from '../../../pages/HomePage';
 import LoginPage from '../../../pages/LoginPage';
 import ProductListPage from '../../../pages/ProductListPage';
 import 'dotenv/config';
 
+// ── Shared helper: steps 1–6 identical in both tests ─────────────────────────
+// Finds the first orderable product, adds it to cart (qty 2), navigates to cart
+// and triggers price calculation. Returns once price fields are populated.
+async function addProductToCartAndCalculate(page: Page, productListPage: ProductListPage): Promise<void> {
+  const productCount = await productListPage.getProductCount();
+  expect(productCount, 'At least one product must be visible').toBeGreaterThan(0);
+
+  // Step 1: find the first product with an active "Zum Warenkorb" button
+  const allCards = page.locator(productListPage.productCard);
+  let targetCard: ReturnType<typeof page.locator> | null = null;
+
+  for (let i = 0; i < productCount; i++) {
+    const card = allCards.nth(i);
+    if (await card.locator('button:has-text("Zum Warenkorb")').count() > 0) {
+      targetCard = card;
+      console.log(`Using product at index ${i}`);
+      break;
+    }
+  }
+  if (!targetCard) throw new Error('No product with an active "Zum Warenkorb" button was found');
+
+  await targetCard.scrollIntoViewIfNeeded();
+
+  // Step 2: increase quantity (fixed at 2 — deterministic, reproducible)
+  const increaseBtn = targetCard.locator('button:has(svg[data-key="add"])');
+  await expect(increaseBtn).toBeVisible({ timeout: 25000 });
+  for (let i = 0; i < 2; i++) {
+    await increaseBtn.click();
+    await page.waitForTimeout(300);
+  }
+  console.log('Clicked "+" 2 time(s)');
+
+  // Step 3: add to cart
+  await targetCard.locator('button:has-text("Zum Warenkorb")').click();
+  await page.waitForTimeout(2000); // allow cart API to update badge
+
+  // Step 4: verify cart badge is visible
+  const cartSvg = page.locator('svg.slds-global-actions__item-action');
+  await expect(cartSvg).toBeVisible({ timeout: 20000 });
+
+  const badgeText = await cartSvg
+    .locator('xpath=following-sibling::*[1]')
+    .textContent()
+    .catch(() => 'badge not found');
+  console.log(`Cart badge: ${badgeText?.trim()}`);
+
+  // Step 5: navigate to cart
+  await cartSvg.click();
+  await page.waitForURL(url => url.href.includes('/cart/'), { timeout: 30000 });
+  expect(page.url()).toContain('/cart/');
+  console.log(`Cart URL: ${page.url()}`);
+
+  // Step 6: trigger price calculation
+  const calculateBtn = page.getByRole('button', { name: /Meinen Auftrag berechnen/i });
+  await expect(calculateBtn).toBeVisible({ timeout: 25000 });
+  await calculateBtn.click();
+
+  await page.waitForLoadState('networkidle', { timeout: 45000 });
+  expect(page.url(), 'Session lost after calculation — redirected away from cart').toContain('/cart/');
+
+  // Step 6b: wait for price fields to be populated by LWC
+  const priceElements = page.locator('lightning-formatted-number');
+  await expect(priceElements.first()).toBeVisible({ timeout: 30000 });
+
+  const count = await priceElements.count();
+  expect(count, 'At least 4 price fields must be present').toBeGreaterThanOrEqual(4);
+
+  for (let i = 0; i < count; i++) {
+    const text = (await priceElements.nth(i).textContent()) ?? '';
+    expect(text.trim(), `Price field ${i + 1} must contain a number`).toMatch(/\d/);
+  }
+  console.log(`Price calculation completed — ${count} price fields populated ✓`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 test.describe('Simulate Price Calculation / Order Creation', () => {
+  test.setTimeout(180000);
+
   let homePage: HomePage;
   let loginPage: LoginPage;
   let productListPage: ProductListPage;
 
   test.beforeEach(async ({ page }) => {
-    homePage = new HomePage(page);
-    loginPage = new LoginPage(page);
+    homePage        = new HomePage(page);
+    loginPage       = new LoginPage(page);
     productListPage = new ProductListPage(page);
 
     await homePage.navigate();
@@ -19,228 +97,75 @@ test.describe('Simulate Price Calculation / Order Creation', () => {
     await loginPage.login(process.env.TEST_EMAIL_OWNER!, process.env.TEST_PASSWORD_OWNER!);
     await expect(page.locator(homePage.meinCockpitLink)).toBeVisible({ timeout: 35000 });
 
-    // BESTELLUNG → ALLE
     await homePage.clickMeinBestellungs();
     await page.waitForTimeout(1000);
     await homePage.clickAlleProducts();
     await page.waitForTimeout(2000);
-
     expect(await productListPage.isProductListVisible()).toBeTruthy();
   });
 
-  test.afterEach(async () => {
+  test.afterEach(async ({ page }, testInfo) => {
+    // Screenshot before cleanup — captures the final state as QA evidence
+    if (testInfo.status === 'passed') {
+      await testInfo.attach('screenshot', {
+        body: await page.screenshot({ fullPage: true }),
+        contentType: 'image/png',
+      });
+    }
+    // Navigate home first to ensure logout works regardless of current page
+    try { await homePage.navigate(); } catch {}
     await homePage.logout();
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Smoke: calculate price and empty cart (no order created) ─────────────
 
-  test('Price simulation: Login, sleect product and add product to cart, calculate price and empty cart', { tag: ['@regression'] },async ({ page }) => {
-    test.setTimeout(180000);
+  test('Price simulation: add product to cart, calculate price and empty cart', { tag: ['@smoke'] }, async ({ page }) => {
+    await addProductToCartAndCalculate(page, productListPage);
 
-    const productCount = await productListPage.getProductCount();
-    expect(productCount, 'At least one product must be visible').toBeGreaterThan(0);
-
-    // ── Step 1: find the first product with an active "Zum Warenkorb" button ──
-    const allCards = page.locator(productListPage.productCard);
-    let targetCard: ReturnType<typeof page.locator> | null = null;
-
-    for (let i = 0; i < productCount; i++) {
-      const card = allCards.nth(i);
-      if (await card.locator('button:has-text("Zum Warenkorb")').count() > 0) {
-        targetCard = card;
-        console.log(`Using product at index ${i}`);
-        break;
-      }
-    }
-    if (!targetCard) throw new Error('No product with an active "Zum Warenkorb" button was found');
-
-    await targetCard.scrollIntoViewIfNeeded();
-
-    // ── Step 2: increase quantity (1–3 times) ────────────────────────────────
-    const increaseBtn = targetCard.locator('button:has(svg[data-key="add"])');
-    await expect(increaseBtn).toBeVisible({ timeout: 25000 });
-
-    const clickCount = Math.floor(Math.random() * 3) + 1;
-    for (let i = 0; i < clickCount; i++) {
-      await increaseBtn.click();
-      await page.waitForTimeout(300);
-    }
-    console.log(`Clicked "+" ${clickCount} time(s)`);
-
-    // ── Step 3: add to cart ──────────────────────────────────────────────────
-    await targetCard.locator('button:has-text("Zum Warenkorb")').click();
-    await page.waitForTimeout(2000); // allow cart API to update badge
-
-    // ── Step 4: verify cart badge ────────────────────────────────────────────
-    // The cart SVG is: svg.slds-global-actions__item-action (tabindex="-1", directly clickable).
-    // The badge sits as a sibling of this SVG — provide its HTML to harden the selector.
-    const cartSvg = page.locator('svg.slds-global-actions__item-action');
-    await expect(cartSvg).toBeVisible({ timeout: 20000 });
-
-    const badgeText = await cartSvg
-      .locator('xpath=following-sibling::*[1]')
-      .textContent()
-      .catch(() => 'badge selector needs adjustment — provide badge HTML');
-    console.log(`Cart badge: ${badgeText?.trim()}`);
-
-    // ── Step 5: navigate to the cart page ───────────────────────────────────
-    await cartSvg.click();
-
-    await page.waitForURL(url => url.href.includes('/cart/'), { timeout: 30000 });
-    expect(page.url()).toContain('/cart/');
-    console.log(`Cart URL: ${page.url()}`);
-
-    // ── Step 6: trigger price calculation ───────────────────────────────────
-    // "Meinen Auftrag berechnen." calls the pricing API — does NOT create an order.
-    const calculateBtn = page.getByRole('button', { name: /Meinen Auftrag berechnen/i });
-    await expect(calculateBtn).toBeVisible({ timeout: 25000 });
-    await calculateBtn.click();
-
-    await page.waitForLoadState('networkidle', { timeout: 45000 });
-
-    // Cart page must still be shown after the calculation (no error, no redirect)
-    expect(page.url()).toContain('/cart/');
-
-    // ── Step 6b: validate that price fields are populated with numbers ──────────
-    // Session loss would redirect to login — catching it here gives a clear message.
-    expect(page.url(), 'Session lost after calculation — redirected away from cart').toContain('/cart/');
-
-    // LWC renders components asynchronously after networkidle; wait for the first one.
-    const priceElements = page.locator('lightning-formatted-number');
-    await expect(priceElements.first()).toBeVisible({ timeout: 30000 });
-
-    const count = await priceElements.count();
-    expect(count, 'At least 4 price fields must be present').toBeGreaterThanOrEqual(4);
-
-    for (let i = 0; i < count; i++) {
-      const text = (await priceElements.nth(i).textContent()) ?? '';
-      expect(text.trim(), `Price field ${i + 1} must contain a number`).toMatch(/\d/);
-    }
-    console.log(`Price calculation completed — ${count} price fields populated ✓`);
-
-    // ── Step 7: empty the cart ───────────────────────────────────────────────
-    // Clicks "Alles löschen." which removes all items from the cart.
+    // Step 7: empty the cart
     const clearCartBtn = page.getByRole('button', { name: /Alles löschen/i });
     await expect(clearCartBtn).toBeVisible({ timeout: 25000 });
     await clearCartBtn.click();
 
-    // Confirm the modal that asks for confirmation before emptying the cart
     const confirmBtn = page.getByRole('button', { name: /Bestätigt/i });
     await expect(confirmBtn).toBeVisible({ timeout: 25000 });
     await confirmBtn.click();
 
     await page.waitForLoadState('networkidle', { timeout: 30000 });
 
-    // After clearing, the "Alles löschen." button must no longer exist
-    // and the delete icon must be gone — confirming the cart is empty.
     await expect(page.locator('button:has(svg[data-key="delete"])')).toHaveCount(0, { timeout: 25000 });
     console.log('Cart emptied — "Alles löschen." button is gone ✓');
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Regression: full order creation flow ─────────────────────────────────
 
-  test('Order creation: add product to cart, calculate price and proceed to checkout',  async ({ page }) => {
-    test.setTimeout(180000);
+  test('Order creation: add product to cart, calculate price and proceed to checkout', { tag: ['@regression'] }, async ({ page }) => {
+    await addProductToCartAndCalculate(page, productListPage);
 
-    const productCount = await productListPage.getProductCount();
-    expect(productCount, 'At least one product must be visible').toBeGreaterThan(0);
-
-    // ── Step 1: find the first product with an active "Zum Warenkorb" button ──
-    const allCards = page.locator(productListPage.productCard);
-    let targetCard: ReturnType<typeof page.locator> | null = null;
-
-    for (let i = 0; i < productCount; i++) {
-      const card = allCards.nth(i);
-      if (await card.locator('button:has-text("Zum Warenkorb")').count() > 0) {
-        targetCard = card;
-        console.log(`Using product at index ${i}`);
-        break;
-      }
-    }
-    if (!targetCard) throw new Error('No product with an active "Zum Warenkorb" button was found');
-
-    await targetCard.scrollIntoViewIfNeeded();
-
-    // ── Step 2: increase quantity (1–3 times) ────────────────────────────────
-    const increaseBtn = targetCard.locator('button:has(svg[data-key="add"])');
-    await expect(increaseBtn).toBeVisible({ timeout: 25000 });
-
-    const clickCount = Math.floor(Math.random() * 3) + 1;
-    for (let i = 0; i < clickCount; i++) {
-      await increaseBtn.click();
-      await page.waitForTimeout(300);
-    }
-    console.log(`Clicked "+" ${clickCount} time(s)`);
-
-    // ── Step 3: add to cart ──────────────────────────────────────────────────
-    await targetCard.locator('button:has-text("Zum Warenkorb")').click();
-    await page.waitForTimeout(2000);
-
-    // ── Step 4: verify cart badge ────────────────────────────────────────────
-    const cartSvg = page.locator('svg.slds-global-actions__item-action');
-    await expect(cartSvg).toBeVisible({ timeout: 20000 });
-
-    const badgeText = await cartSvg
-      .locator('xpath=following-sibling::*[1]')
-      .textContent()
-      .catch(() => 'badge selector needs adjustment — provide badge HTML');
-    console.log(`Cart badge: ${badgeText?.trim()}`);
-
-    // ── Step 5: navigate to the cart page ───────────────────────────────────
-    await cartSvg.click();
-
-    await page.waitForURL(url => url.href.includes('/cart/'), { timeout: 30000 });
-    expect(page.url()).toContain('/cart/');
-    console.log(`Cart URL: ${page.url()}`);
-
-    // ── Step 6: trigger price calculation ───────────────────────────────────
-    const calculateBtn = page.getByRole('button', { name: /Meinen Auftrag berechnen/i });
-    await expect(calculateBtn).toBeVisible({ timeout: 25000 });
-    await calculateBtn.click();
-
-    await page.waitForLoadState('networkidle', { timeout: 45000 });
-
-    expect(page.url()).toContain('/cart/');
-
-    // ── Step 6b: validate that price fields are populated with numbers ──────────
-    expect(page.url(), 'Session lost after calculation — redirected away from cart').toContain('/cart/');
-
-    const priceElements = page.locator('lightning-formatted-number');
-    await expect(priceElements.first()).toBeVisible({ timeout: 30000 });
-
-    const count = await priceElements.count();
-    expect(count, 'At least 4 price fields must be present').toBeGreaterThanOrEqual(4);
-
-    for (let i = 0; i < count; i++) {
-      const text = (await priceElements.nth(i).textContent()) ?? '';
-      expect(text.trim(), `Price field ${i + 1} must contain a number`).toMatch(/\d/);
-    }
-    console.log(`Price calculation completed — ${count} price fields populated ✓`);
-
-    // ── Step 7: proceed to checkout ──────────────────────────────────────────
+    // Step 7: proceed to checkout
     const checkoutBtn = page.getByRole('button', { name: /Zur Bezahlung gehen/i });
     await expect(checkoutBtn).toBeVisible({ timeout: 25000 });
     await checkoutBtn.click();
     console.log('Clicked "Zur Bezahlung gehen." ✓');
 
-    // ── Step 8: verify navigation to the checkout page ──────────────────────
+    // Step 8: verify navigation to checkout
     await page.waitForURL(url => url.href.includes('/checkout/'), { timeout: 45000 });
     expect(page.url()).toContain('/checkout/');
     console.log(`Checkout URL: ${page.url()}`);
 
-    // ── Step 9: fill in the order reference field ────────────────────────────
+    // Step 9: fill order reference
     const orderRefInput = page.locator('[part="input-container"] input, .slds-form-element__control.slds-grow input').first();
     await expect(orderRefInput).toBeVisible({ timeout: 25000 });
     await orderRefInput.fill('CoE automation test');
-    console.log('Filled order reference field with "CoE automation test" ✓');
+    console.log('Filled order reference field ✓');
 
-    // ── Step 10: confirm payment ─────────────────────────────────────────────
+    // Step 10: confirm payment
     const confirmPaymentBtn = page.getByRole('button', { name: /Bestätigen Sie die Zahlung/i });
     await expect(confirmPaymentBtn).toBeVisible({ timeout: 25000 });
     await confirmPaymentBtn.click();
     console.log('Clicked "Bestätigen Sie die Zahlung" ✓');
 
-    // ── Step 11: verify order confirmation page ──────────────────────────────
+    // Step 11: verify order confirmation
     await page.waitForURL(url => url.href.includes('/orderconfirmation/'), { timeout: 75000 });
     expect(page.url()).toContain('/orderconfirmation/');
     console.log(`Order confirmation URL: ${page.url()}`);
@@ -248,7 +173,6 @@ test.describe('Simulate Price Calculation / Order Creation', () => {
     const orderNumberHeading = page.locator('h2', { hasText: /Auftragsnummer\./i });
     await expect(orderNumberHeading).toBeVisible({ timeout: 30000 });
 
-    // Wait until the order number (digits) is populated after the heading text
     await expect.poll(
       async () => (await orderNumberHeading.textContent()) ?? '',
       { timeout: 30000, message: 'Order number did not appear after "Auftragsnummer.:"' }
