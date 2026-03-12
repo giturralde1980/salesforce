@@ -52,7 +52,7 @@ test.describe.serial('Top Menu Bar - Owner navigation', { tag: ['@smoke'] }, () 
 
   test.beforeEach(async () => {
     await homePage.navigate();
-    await sharedPage.waitForSelector('[data-menubar-item]', { timeout: 15000 });
+    await sharedPage.waitForSelector('a[data-menubar-item], button[data-menubar-item]', { timeout: 25000 });
   });
 
   test.afterEach(async ({}, testInfo) => {
