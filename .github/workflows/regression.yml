@@ -1,7 +1,8 @@
 name: Regression Tests
 
+# DISABLED until 2026-04-01 — suspended to save GitHub Actions minutes
 on:
-  workflow_dispatch:   # ejecución manual
+  workflow_dispatch:   # manual only while disabled
 
 jobs:
   regression:

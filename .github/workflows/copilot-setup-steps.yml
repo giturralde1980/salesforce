@@ -1,13 +1,8 @@
 name: "Copilot Setup Steps"
 
+# DISABLED until 2026-04-01 — suspended to save GitHub Actions minutes
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/copilot-setup-steps.yml
-  pull_request:
-    paths:
-      - .github/workflows/copilot-setup-steps.yml
+  workflow_dispatch:   # manual only while disabled
 
 jobs:
   copilot-setup-steps:
