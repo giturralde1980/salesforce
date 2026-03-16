@@ -100,8 +100,7 @@ test.describe('Simulate Price Calculation / Order Creation', () => {
     await homePage.clickMeinBestellungs();
     await page.waitForTimeout(1000);
     await homePage.clickAlleProducts();
-    await page.waitForTimeout(2000);
-    expect(await productListPage.isProductListVisible()).toBeTruthy();
+    await expect(page.locator('c-plp-products-container')).toBeVisible({ timeout: 30000 });
   });
 
   test.afterEach(async ({ page }, testInfo) => {

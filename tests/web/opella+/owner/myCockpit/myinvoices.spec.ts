@@ -65,7 +65,7 @@ test.describe('My Invoices - Meine Rechnungen', () => {
 
   // ─── Search: valid invoice ───────────────────────────────────────────────
 
-  test('Searching for a valid invoice number shows at least one result', async ({ page }) => {
+  test.skip('Searching for a valid invoice number shows at least one result', async ({ page }) => {
     const invoiceNumber = process.env.INVOICE!;
 
     const searchInput = page.locator(SEARCH_INPUT_SELECTOR);

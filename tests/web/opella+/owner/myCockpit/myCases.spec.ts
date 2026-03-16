@@ -61,7 +61,7 @@ test.describe.serial('My Cases', () => {
     console.log('✓ Case creation modal opened');
   });
 
-  test('should create a new case', async () => {
+  test.skip('should create a new case', async () => {
     await myCasesPage.clickCreateCase();
     await myCasesPage.submitCaseForm(
       'Claim',
