@@ -9,6 +9,8 @@
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
     "test:login": "playwright test login.spec.ts",
+    "test:web": "playwright test tests/web/",
+    "test:api": "playwright test tests/api/",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
