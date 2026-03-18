@@ -40,4 +40,4 @@ jobs:
         with:
           name: OpellaRegressionTestReport
           path: playwright-report/
-          retention-days: 15
+          retention-days: 1
