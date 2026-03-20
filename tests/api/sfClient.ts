@@ -59,6 +59,34 @@ export interface SfHealthLicenseRecord {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 /**
+ * Obtains a Salesforce access token using the username-password OAuth flow.
+ * Uses native fetch — usable in global-setup.ts and any non-Playwright context.
+ * Required env vars: SF_CLIENT_ID, SF_CLIENT_SECRET, SF_WEB_USERNAME, SF_WEB_PASSWORD, SF_SECURITY_TOKEN
+ */
+export async function getSfToken(): Promise<SfTokenResponse> {
+  const params = new URLSearchParams({
+    grant_type:    'password',
+    client_id:     process.env.SF_CLIENT_ID!,
+    client_secret: process.env.SF_CLIENT_SECRET!,
+    username:      process.env.SF_WEB_USERNAME!,
+    password:      process.env.SF_WEB_PASSWORD! + process.env.SF_SECURITY_TOKEN!,
+  });
+
+  const res = await fetch('https://login.salesforce.com/services/oauth2/token', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body:    params.toString(),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Salesforce OAuth failed — ${res.status}: ${body}`);
+  }
+
+  return res.json() as Promise<SfTokenResponse>;
+}
+
+/**
  * Obtains a Salesforce access token using the client_credentials OAuth flow.
  * Required env vars: SF_CLIENT_ID, SF_CLIENT_SECRET
  */
@@ -69,7 +97,7 @@ export async function getSfAccessToken(request: APIRequestContext): Promise<SfTo
   params.append('client_secret', process.env.SF_CLIENT_SECRET!);
 
   const res = await request.post(
-    'https://sanofi-chcrm-eu--uat1.sandbox.my.salesforce.com/services/oauth2/token',
+    'https://login.salesforce.com/services/oauth2/token',
     {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: params.toString(),

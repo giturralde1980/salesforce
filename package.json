@@ -8,6 +8,7 @@
     "test:debug": "playwright test --debug",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
+    "setup": "playwright test --project=setup",
     "test:login": "playwright test login.spec.ts",
     "test:web": "playwright test tests/web/",
     "test:api": "playwright test tests/api/",

@@ -5,11 +5,13 @@ dotenv.config();
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: ['**/.claude/**'],
   timeout: 90000,
+  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,  // 1 retry es suficiente, no 2
-  workers: process.env.CI ? 4 : 1,  // 4 en paralelo en CI
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 4 : 1,
   reporter: [
     ['html'],
     ['list'],
@@ -17,7 +19,8 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: process.env.BASE_URL,
+    baseURL: process.env.SF_BASE_URL,
+    storageState: 'auth/storageState.json',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
@@ -27,9 +30,9 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'Microsoft Edge',
+      name: 'Chrome',
       use: {
-        channel: 'msedge',
+        channel: 'chrome',
         viewport: { width: 1920, height: 1080 },
         launchOptions: {
           args: ['--start-maximized'],

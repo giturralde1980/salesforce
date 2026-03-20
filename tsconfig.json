@@ -10,10 +10,13 @@
     "resolveJsonModule": true
   },
   "include": [
-    "**/*.ts"
+    "tests/**/*.ts",
+    "global-setup.ts",
+    "playwright.config.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    ".claude"
   ]
 }
