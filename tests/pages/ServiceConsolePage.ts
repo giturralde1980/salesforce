@@ -16,6 +16,7 @@ export class ServiceConsolePage extends BasePage {
     await this.page.click(this.appLauncherBtn);
     await this.page.locator(this.serviceConsole, { hasText: 'Service Console' }).click();
     await this.page.waitForURL(/lightning/, { timeout: 15_000 });
+    await this.page.locator('button[title="Show Navigation Menu"]').waitFor({ timeout: 15_000 });
   }
 
   async clickNew() {
